@@ -21,11 +21,13 @@ import org.gradle.api.Transformer;
 import org.gradle.internal.composite.DefaultGradleParticipantBuild;
 import org.gradle.internal.composite.GradleParticipantBuild;
 import org.gradle.tooling.GradleConnectionException;
+import org.gradle.tooling.ProjectConnection;
 import org.gradle.tooling.connection.GradleConnection;
 import org.gradle.tooling.connection.GradleConnectionBuilder;
 import org.gradle.tooling.internal.consumer.DefaultCompositeConnectionParameters;
 import org.gradle.tooling.internal.consumer.Distribution;
 import org.gradle.tooling.internal.consumer.DistributionFactory;
+import org.gradle.tooling.model.build.BuildEnvironment;
 import org.gradle.util.CollectionUtils;
 import org.gradle.util.GradleVersion;
 
@@ -92,7 +94,23 @@ public class DefaultGradleConnectionBuilder implements GradleConnectionBuilderIn
         if (distribution == null) {
             distribution = distributionFactory.getDistribution(GradleVersion.current().getVersion());
         }
-        return gradleConnectionFactory.create(distribution, connectionParameters, false);
+        return gradleConnectionFactory.create(distribution, connectionParameters, useDaemonCoordinator(participants));
+    }
+
+    private boolean useDaemonCoordinator(Set<GradleParticipantBuild> participants) {
+        for (GradleParticipantBuild participant : participants) {
+            ParticipantConnector participantConnector = new ParticipantConnector(participant, gradleUserHomeDir, daemonBaseDir, daemonMaxIdleTimeValue, TimeUnit.SECONDS);
+            ProjectConnection connect = participantConnector.connect();
+            try {
+                BuildEnvironment model = connect.getModel(BuildEnvironment.class);
+                if (!model.getGradle().getGradleVersion().equals(GradleVersion.current().getVersion())) {
+                    return false;
+                }
+            } finally {
+                connect.close();
+            }
+        };
+        return true;
     }
 
     @Override
