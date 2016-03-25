@@ -16,28 +16,58 @@
 
 package org.gradle.process.internal;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import org.gradle.api.Action;
+import org.gradle.api.Transformer;
 import org.gradle.api.internal.ClassPathRegistry;
 import org.gradle.api.internal.file.TemporaryFileProvider;
 import org.gradle.api.logging.LogLevel;
+import org.gradle.cli.CommandLineConverter;
 import org.gradle.internal.Factory;
+import org.gradle.internal.UncheckedException;
 import org.gradle.internal.classloader.ClasspathUtil;
 import org.gradle.internal.id.IdGenerator;
+import org.gradle.internal.io.ClassLoaderObjectInputStream;
+import org.gradle.internal.nativeintegration.console.ConsoleMetaData;
+import org.gradle.internal.serialize.Decoder;
 import org.gradle.messaging.remote.Address;
 import org.gradle.messaging.remote.ConnectionAcceptor;
 import org.gradle.messaging.remote.MessagingServer;
 import org.gradle.messaging.remote.ObjectConnection;
 import org.gradle.process.internal.child.ApplicationClassesInSystemClassLoaderWorkerFactory;
+import org.gradle.process.internal.child.SystemApplicationClassLoaderWorker;
+import org.gradle.util.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.io.File;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class DefaultWorkerProcessFactory implements Factory<WorkerProcessBuilder> {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultWorkerProcessFactory.class);
+    public static final Class<?>[] WORKER_REQUIRED_CLASSES = new Class<?>[] {
+        SystemApplicationClassLoaderWorker.class,
+        Decoder.class,
+        ClassLoaderObjectInputStream.class,
+        CommandLineConverter.class,
+        ConsoleMetaData.class,
+        ImmutableSet.class,
+        LoggerFactory.class,
+        SLF4JBridgeHandler.class
+    };
+    public static final String[] TEST_WORKER_REQUIRED_CLASSNAMES = new String[] {
+        "org/gradle/api/internal/tasks/testing/junit/JUnitTestFramework.class",
+        "net/rubygrapefruit/platform/NativeIntegrationUnavailableException.class",
+        "com/esotericsoftware/kryo/KryoException.class",
+        "org/apache/commons/lang/StringUtils.class",
+        "org/junit/runner/notification/RunListener.class"
+    };
+
     private final LogLevel workerLogLevel;
     private final MessagingServer server;
     private final IdGenerator<?> idGenerator;
@@ -87,7 +117,31 @@ public class DefaultWorkerProcessFactory implements Factory<WorkerProcessBuilder
             Address localAddress = acceptor.getAddress();
 
             // Build configuration for GradleWorkerMain
-            List<URL> implementationClassPath = ClasspathUtil.getClasspath(getWorker().getClass().getClassLoader());
+            List<Class<?>> classpathClasses = Lists.newArrayList(WORKER_REQUIRED_CLASSES);
+            classpathClasses.add(getWorker().getClass());
+
+            List<URL> implementationClassPath = CollectionUtils.collect(classpathClasses, new Transformer<URL, Class<?>>() {
+                @Override
+                public URL transform(Class<?> aClass) {
+                    try {
+                        return ClasspathUtil.getClasspathForClass(aClass).toURI().toURL();
+                    } catch (MalformedURLException e) {
+                        throw new UncheckedException(e);
+                    }
+                }
+            });
+
+            implementationClassPath.addAll(CollectionUtils.collect(TEST_WORKER_REQUIRED_CLASSNAMES, new Transformer<URL, String>() {
+                @Override
+                public URL transform(String className) {
+                    try {
+                        return ClasspathUtil.getClasspathForResource(getWorker().getClass().getClassLoader(), className).toURI().toURL();
+                    } catch (MalformedURLException e) {
+                        throw new UncheckedException(e);
+                    }
+                }
+            }));
+
             Object id = idGenerator.generateId();
             String displayName = getBaseName() + " " + id;
 
