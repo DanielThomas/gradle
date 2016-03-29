@@ -87,34 +87,22 @@ public class CompositeBuildModelActionRunner implements CompositeBuildActionRunn
             .build();
         compositeServices.add(CompositeBuildContext.class, context);
         compositeServices.addProvider(new CompositeScopeServices(parentStartParam, compositeServices));
-        boolean buildFound = false;
-        for (GradleParticipantBuild participant : participantBuilds) {
-            // TODO  We are no longer targeting the correct build
-//            if (!participant.getProjectDir().getAbsolutePath().equals(compositeParameters.getCompositeTargetBuildRootDir().getAbsolutePath())) {
-//                continue;
-//            }
-            buildFound = true;
-            if (buildRequestContext.getCancellationToken().isCancellationRequested()) {
-                break;
-            }
-            StartParameter startParameter = parentStartParam.newInstance();
-            startParameter.setProjectDir(participant.getProjectDir());
-            startParameter.setSearchUpwards(false);
+
+        GradleParticipantBuild participant = compositeParameters.getTargetBuild();
+        StartParameter startParameter = parentStartParam.newInstance();
+        startParameter.setProjectDir(participant.getProjectDir());
+        startParameter.setSearchUpwards(false);
 
 
-            ServiceRegistry buildScopedServices = new BuildSessionScopeServices(compositeServices, startParameter, ClassPath.EMPTY);
+        ServiceRegistry buildScopedServices = new BuildSessionScopeServices(compositeServices, startParameter, ClassPath.EMPTY);
 
-            DefaultBuildRequestContext requestContext = new DefaultBuildRequestContext(new DefaultBuildRequestMetaData(new GradleLauncherMetaData(), System.currentTimeMillis()), buildRequestContext.getCancellationToken(), buildRequestContext.getEventConsumer(), buildRequestContext.getOutputListener(), buildRequestContext.getErrorListener());
-            GradleLauncher launcher = launcherFactory.newInstance(startParameter, requestContext, buildScopedServices);
+        DefaultBuildRequestContext requestContext = new DefaultBuildRequestContext(new DefaultBuildRequestMetaData(new GradleLauncherMetaData(), System.currentTimeMillis()), buildRequestContext.getCancellationToken(), buildRequestContext.getEventConsumer(), buildRequestContext.getOutputListener(), buildRequestContext.getErrorListener());
+        GradleLauncher launcher = launcherFactory.newInstance(startParameter, requestContext, buildScopedServices);
 
-            try {
-                launcher.run();
-            } finally {
-                launcher.stop();
-            }
-        }
-        if (!buildFound) {
-            throw new IllegalStateException("Build not part of composite");
+        try {
+            launcher.run();
+        } finally {
+            launcher.stop();
         }
     }
 

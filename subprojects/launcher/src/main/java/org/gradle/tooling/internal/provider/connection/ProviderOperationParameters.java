@@ -21,6 +21,7 @@ import org.gradle.internal.composite.GradleParticipantBuild;
 import org.gradle.tooling.internal.protocol.InternalBuildProgressListener;
 import org.gradle.tooling.internal.protocol.InternalLaunchable;
 import org.gradle.tooling.internal.protocol.ProgressListenerVersion1;
+import org.gradle.tooling.model.BuildIdentifier;
 
 import java.io.File;
 import java.io.InputStream;
@@ -165,8 +166,7 @@ public interface ProviderOperationParameters {
     List<File> getInjectedPluginClasspath(List<File> defaultClasspath);
 
     /**
-     * @since 2.13-rc-1
-     *
+     * @since 2.14-rc-1
      */
     @Nullable
     List<GradleParticipantBuild> getBuilds(List<GradleParticipantBuild> defaultBuilds);
