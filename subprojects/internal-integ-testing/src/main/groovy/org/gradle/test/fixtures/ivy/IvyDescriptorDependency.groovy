@@ -27,4 +27,9 @@ class IvyDescriptorDependency {
         assert this.conf == conf
         return this
     }
+
+    @Override
+    String toString() {
+        return "IvyDescriptorDependency $org:$module:$revision ($conf)"
+    }
 }

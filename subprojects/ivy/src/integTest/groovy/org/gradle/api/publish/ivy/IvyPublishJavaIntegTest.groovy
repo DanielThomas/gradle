@@ -149,6 +149,37 @@ class IvyPublishJavaIntegTest extends AbstractIvyPublishIntegTest {
         resolveArtifacts(ivyModule) == ["commons-collections-3.2.2.jar", "commons-io-1.4.jar", "publishTest-1.9.jar", "spring-core-2.5.6.jar"]
     }
 
+    public void "generated ivy descriptor reflects module replacements"() {
+        given:
+        createBuildScripts("""
+            dependencies {
+                 compile 'com.google.collections:google-collections:1.0'
+                 compile 'com.google.truth:truth:0.28'
+                 modules {
+                     module('com.google.collections:google-collections') {
+                         replacedBy('com.google.guava:guava')
+                     }
+                 }
+            }
+
+            publishing {
+                publications {
+                    ivy(IvyPublication) {
+                        from components.java
+                    }
+                }
+            }
+""")
+
+        when:
+        run "publish"
+
+        then:
+        ivyModule.assertPublishedAsJavaModule()
+
+        ivyModule.parsedIvy.expectDependency("com.google.guava:guava:18.0")
+    }
+
     def createBuildScripts(def append) {
         settingsFile << "rootProject.name = 'publishTest' "
 

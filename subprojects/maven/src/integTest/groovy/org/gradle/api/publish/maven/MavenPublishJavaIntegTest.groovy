@@ -76,6 +76,37 @@ class MavenPublishJavaIntegTest extends AbstractMavenPublishIntegTest {
         resolveArtifacts(mavenModule, [classifier: 'source']) == ["commons-collections-3.2.2.jar", "commons-io-1.4.jar", "publishTest-1.9-source.jar", "publishTest-1.9.jar"]
     }
 
+    public void "generated pom reflects module replacements"() {
+        given:
+        createBuildScripts("""
+            dependencies {
+                 compile 'com.google.collections:google-collections:1.0'
+                 compile 'com.google.truth:truth:0.28'
+                 modules {
+                     module('com.google.collections:google-collections') {
+                         replacedBy('com.google.guava:guava')
+                     }
+                 }
+            }
+
+            publishing {
+                publications {
+                    maven(MavenPublication) {
+                        from components.java
+                    }
+                }
+            }
+""")
+
+        when:
+        run "publish"
+
+        then:
+        mavenModule.assertPublishedAsJavaModule()
+
+        mavenModule.parsedPom.expectDependency("com.google.guava:guava:18.0")
+    }
+
     def createBuildScripts(def append) {
         settingsFile << "rootProject.name = 'publishTest' "
 

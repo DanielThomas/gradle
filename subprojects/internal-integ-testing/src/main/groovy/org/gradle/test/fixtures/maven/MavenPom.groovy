@@ -16,6 +16,8 @@
 
 package org.gradle.test.fixtures.maven
 
+import org.gradle.test.fixtures.ivy.IvyDescriptorDependency
+
 class MavenPom {
     String groupId
     String artifactId
@@ -66,5 +68,12 @@ class MavenPom {
                 scope.dependencies[key] = mavenDependency
             }
         }
+    }
+
+    MavenDependency expectDependency(String key) {
+        final dependencies = scopes["runtime"].dependencies
+        final dependency = dependencies[key]
+        assert dependency != null : "Could not find expected dependency $key. Actual: ${dependencies.values()}"
+        return dependency
     }
 }
