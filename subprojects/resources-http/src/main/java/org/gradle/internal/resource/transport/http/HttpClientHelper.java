@@ -18,6 +18,7 @@ package org.gradle.internal.resource.transport.http;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
+import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -151,6 +152,11 @@ public class HttpClientHelper implements Closeable {
         validateRedirectChain(httpContext);
         URI lastRedirectLocation = getLastRedirectLocation(httpContext);
         URI effectiveUri = lastRedirectLocation == null ? request.getURI() : lastRedirectLocation;
+        if (response.containsHeader(HttpHeaders.WARNING)) {
+            for (Header warningHeader : response.getHeaders(HttpHeaders.WARNING)) {
+                LOGGER.warn("Warning received for {} from {}: {}", request.getMethod(), stripUserCredentials(effectiveUri), warningHeader.getValue());
+            }
+        }
         return new HttpClientResponse(request.getMethod(), effectiveUri, response);
     }
 
